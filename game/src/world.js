@@ -33,7 +33,10 @@ function makeFacadeTexture(rng, base) {
   return texture;
 }
 
-/** Asphalt with a dashed centre line, tiled along the road's length. */
+/** Asphalt with a dashed centre line, tiled along the road's length. The road
+ * boxes map U along their 472 m length and V across their 14 m width, so the
+ * dash runs along U (horizontal in the canvas) and the texture repeats 33x
+ * in U (one ~14 m tile per repeat) and once in V. */
 function makeRoadTexture() {
   const canvas = document.createElement('canvas');
   canvas.width = 64;
@@ -46,12 +49,12 @@ function makeRoadTexture() {
     ctx.fillStyle = Math.random() < 0.5 ? 'rgba(255,255,255,0.05)' : 'rgba(0,0,0,0.12)';
     ctx.fillRect(Math.random() * 64, Math.random() * 128, 2, 2);
   }
-  // Dashed centre line (runs along the texture's vertical axis).
+  // Dashed centre line (runs along U, the road's length): centred in V.
   ctx.fillStyle = '#e8e4d8';
-  ctx.fillRect(30, 8, 4, 56);
-  // Solid edge lines.
-  ctx.fillRect(2, 0, 2, 128);
-  ctx.fillRect(60, 0, 2, 128);
+  ctx.fillRect(8, 62, 48, 4);
+  // Solid edge lines, also along U.
+  ctx.fillRect(0, 2, 64, 2);
+  ctx.fillRect(0, 124, 64, 2);
   const texture = new THREE.CanvasTexture(canvas);
   texture.wrapS = THREE.RepeatWrapping;
   texture.wrapT = THREE.RepeatWrapping;
@@ -196,14 +199,19 @@ export function buildWorld(scene, rng) {
   // --- Roads ------------------------------------------------------------------
   const roadTexture = makeRoadTexture();
   // One shared material/texture for every road: tile the dashes along the length.
-  roadTexture.repeat.set(1, Math.round((CITY.halfExtent * 2 + CITY.streetWidth) / 14));
+  roadTexture.repeat.set(Math.round((CITY.halfExtent * 2 + CITY.streetWidth) / 14), 1);
   const roadMat = new THREE.MeshStandardMaterial({ map: roadTexture, roughness: 0.95 });
   const roadLen = CITY.halfExtent * 2 + CITY.streetWidth;
   for (const line of CITY.roadLines) {
     for (const along of ['x', 'z']) {
       const road = new THREE.Mesh(new THREE.BoxGeometry(roadLen, 0.1, CITY.streetWidth), roadMat);
       if (along === 'x') road.position.set(0, 0.02, line);
-      else road.position.set(line, 0.02, 0);
+      else {
+        // Turn the box so its local length (U) runs along world z, matching
+        // the x-roads' mapping; otherwise this road's dashes run across it.
+        road.rotation.y = Math.PI / 2;
+        road.position.set(line, 0.02, 0);
+      }
       road.receiveShadow = true;
       scene.add(road);
     }

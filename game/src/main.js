@@ -98,7 +98,10 @@ function allCars() {
 
 function objectiveText() {
   const current = missions && missions.current;
-  if (current) return current.title || current.name || current.objective || 'Free roam';
+  // The objective (which missions rewrite as stages advance) comes first:
+  // the name is only a fallback, or the HUD would show "The Big Score"
+  // forever and never the actual instruction.
+  if (current) return current.objective || current.title || current.name || 'Free roam';
   return 'Free roam — find work around Vice Shores.';
 }
 
@@ -164,13 +167,25 @@ function endGame(kind) {
 
 document.getElementById('start-button')?.addEventListener('click', startGame);
 document.getElementById('restart-button')?.addEventListener('click', () => {
+  // Full reset: a completed mission must not stay current (it would end the
+  // new run on its first frame), and old heat/cruisers must not carry over.
+  if (missions && typeof missions.reset === 'function') missions.reset();
+  if (police && typeof police.reset === 'function') police.reset();
+  for (const key of Object.keys(game.crimes)) delete game.crimes[key];
   player.setPosition(SPAWN.x, SPAWN.z, SPAWN.heading);
   player.health = 100;
   player.money = 0;
+  player.speed = 0;
+  player.driving = null;
+  player.busted = false;
   if (game.currentCar) {
     game.currentCar = null;
     player.setVisible(true);
   }
+  hud.setHealth(100);
+  hud.setMoney(0);
+  hud.setWanted(0);
+  hud.setObjective('Free roam — find work around Vice Shores.');
   startGame();
 });
 document.getElementById('start-screen')?.addEventListener('click', (event) => {
@@ -294,9 +309,13 @@ function frame(now) {
   });
   if (audio.siren) audio.siren((police.wanted || 0) > 0);
 
-  // Camera follows whoever is moving: the car, or Rook on foot.
-  followCamera(camera, driving ? game.currentCar : player, dt, {
-    mode: driving ? 'car' : 'foot',
+  // Camera follows whoever is moving: the car, or Rook on foot. Re-read the
+  // car here, not the `driving` flag captured above the driving block:
+  // exiting sets game.currentCar to null on this same frame, and following
+  // the stale flag would pass null as the camera target and throw.
+  const followTarget = game.currentCar || player;
+  followCamera(camera, followTarget, dt, {
+    mode: game.currentCar ? 'car' : 'foot',
     orbitYaw: input.orbitYaw,
     orbitPitch: input.orbitPitch,
   });

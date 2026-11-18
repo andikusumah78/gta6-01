@@ -106,20 +106,28 @@ export function applyShotParams(game) {
     putPlayerInCar(game, 0, -74);
     if (player && typeof player.money !== 'number') player.money = 250;
     if (police?.addHeat) police.addHeat(3);
-    // Line the three cruisers up behind Rook's car, in pursuit: the player
-    // faces +x (heading PI/2), so "behind" is -x with a lane stagger in z.
+    // Cruisers only spawn inside police.update, so run one tick now to
+    // create them — otherwise the line-up below would position nothing and
+    // the shot would show an empty road behind Rook.
+    if (police?.update) police.update(0.016, player, {});
+    // Line the three cruisers up AHEAD of Rook's car, in pursuit: the chase
+    // camera sits behind Rook looking forward, so cruisers staged behind
+    // him would be behind the camera and invisible. Ahead, staggered across
+    // the lanes with their light bars flashing, they read as a chase.
     const at = readPos(player);
     (police?.policeCars ?? []).forEach((car, i) => {
-      car.x = at.x - 12 - i * 8;
-      car.z = at.z + (i - 1) * 6;
+      car.x = at.x + 16 + i * 10;
+      car.z = at.z + (i - 1) * 5;
       car.heading = Math.PI / 2;
       if (car.mesh?.position?.set) car.mesh.position.set(car.x, 0, car.z);
       if (car.mesh) car.mesh.rotation.y = car.heading;
     });
     if (hud?.setObjective) hud.setObjective('Lose the heat — 3 stars on your tail.');
   } else if (shot === 'mission') {
-    // On the road near the Docks, in the car, with mission 2 already active.
-    putPlayerInCar(game, -148, 74);
+    // On a sunny stretch of the z = 74 road, in the car, with mission 2
+    // already active. (The Docks end of the city sits in a tall building's
+    // shadow, which left the first take of this shot nearly black.)
+    putPlayerInCar(game, 0, 74);
     if (missions?.start) missions.start(1);
     if (hud?.setObjective) hud.setObjective('Collect the package at the Docks, then drop to 1 star.');
   } else {

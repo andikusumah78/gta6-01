@@ -133,6 +133,15 @@ export function createPolice(scene, world, rng) {
     decayTimer = 0;
   }
 
+  /** Full reset for Play again: drop all heat and pull every cruiser off the road. */
+  function reset() {
+    heat = 0;
+    quietTimer = 0;
+    decayTimer = 0;
+    api.busted = false;
+    for (const car of [...policeCars]) removeCar(car);
+  }
+
   function bust(player) {
     // The bust is delivered three ways: the flag the main loop reads every
     // frame, the hook main.js may assign, and a flag on the player itself.
@@ -215,6 +224,7 @@ export function createPolice(scene, world, rng) {
     policeCars,
     addHeat,
     update,
+    reset,
     // Assigned by main.js: called the moment Rook is busted.
     onBusted: null,
   };

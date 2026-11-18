@@ -168,13 +168,17 @@ export function createMissions(game) {
       stage = 1;
       hidePackage();
       if (police?.addHeat) police.addHeat(2);
-      setObjectiveText('Package grabbed — drop to 1 star to shake the heat.');
+      // The main loop re-reads the mission's objective every frame, so the
+      // stage text has to live on the mission itself, not just in a HUD call.
+      list[1].objective = 'Package grabbed — drop to 1 star to shake the heat.';
+      setObjectiveText(list[1].objective);
       say('Package grabbed. Lose the heat!');
     } else if (activeIndex === 3 && stage === 0) {
       stage = 1;
       stageTimer = 0;
       if (police?.addHeat) police.addHeat(4);
-      setObjectiveText('Survive the shootout — hold on!');
+      list[3].objective = 'Survive the shootout — hold on!';
+      setObjectiveText(list[3].objective);
       say('The Kings are here. Survive!');
     }
   }
@@ -193,6 +197,27 @@ export function createMissions(game) {
     if (i === 1) showPackage(DOCKS);
     if (i === 2 && police?.addHeat) police.addHeat(3);
     return true;
+  }
+
+  // Stage text overwrites a mission's objective as it advances; a restart
+  // restores the originals so the next run reads the first-stage text again.
+  const ORIGINAL_OBJECTIVES = list.map((m) => m.objective);
+
+  /** Full reset for Play again: clear every mission, including a completed one. */
+  function reset() {
+    activeIndex = -1;
+    stage = 0;
+    stageTimer = 0;
+    doneCount = 0;
+    done.fill(false);
+    target = null;
+    hidePackage();
+    for (const mission of list) {
+      mission.done = false;
+      mission.completed = false;
+      mission.objective = ORIGINAL_OBJECTIVES[mission.index];
+    }
+    setObjectiveText('Free roam — find work around Vice Shores.');
   }
 
   function update(dt) {
@@ -225,7 +250,8 @@ export function createMissions(game) {
         if (stageTimer >= SHOOTOUT_SECONDS) {
           stage = 2;
           target = { ...HIDEOUT };
-          setObjectiveText('Shipment secured — get to the hideout.');
+          list[3].objective = 'Shipment secured — get to the hideout.';
+          setObjectiveText(list[3].objective);
           say('Shipment secured. Run for the hideout!');
         }
       } else if (stage === 2 && target && near(player, target)) {
@@ -247,6 +273,7 @@ export function createMissions(game) {
     },
     start,
     update,
+    reset,
     onObjective: advance,
   };
   return api;
