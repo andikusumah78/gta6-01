@@ -1,61 +1,96 @@
-// Every tuning number and colour in one place. The playfield is a fixed 1280x720 logical area;
-// the renderer scales it to the window, so no rule below depends on the screen size.
+// Vice Shores — every tuning number and colour in one place.
+// The city is a 6x6 grid of blocks. Roads run on seven lines per axis, 74 m apart
+// (60 m block + 14 m street), so block centres sit at -185, -111, -37, 37, 111, 185
+// and the outer road edges land near +/-229 m: the "about -220..+220" span.
 
-export const FIELD = { width: 1280, height: 720, groundY: 664 };
+export const CITY = {
+  blocks: 6,
+  blockSize: 60,
+  streetWidth: 14,
+  pitch: 74,
+  roadLines: [-222, -148, -74, 0, 74, 148, 222],
+  blockCenters: [-185, -111, -37, 37, 111, 185],
+  halfExtent: 229,
+  // Hard clamp for anything that moves: a little past the outer road edge.
+  bound: 245,
+};
 
-/** The simulation's fixed step, in seconds: 60 updates a second whatever the display's rate. */
-export const STEP = 1 / 60;
+export const SPAWN = { x: 0, y: 0, z: 20, heading: Math.PI };
 
 export const PLAYER = {
-  width: 72,
-  height: 24,
-  speed: 560,
-  invulnerable: 1.5,
+  walkSpeed: 6,
+  sprintSpeed: 10,
+  accel: 42,
+  radius: 0.5,
+  maxHealth: 100,
 };
 
-export const LIVES = 3;
-
-export const BLOCK = {
-  minWidth: 40,
-  maxWidth: 110,
-  height: 36,
-  speed: 240,
-  speedPerLevel: 30,
-  speedJitter: 90,
-  interval: 0.55,
-  intervalScale: 0.88,
-  minInterval: 0.14,
-  dodgePoints: 1,
+export const CAR = {
+  maxSpeed: 38,
+  maxReverse: 12,
+  accel: 16,
+  brake: 30,
+  handbrake: 55,
+  steerMax: 0.62,
+  wheelBase: 2.9,
+  radius: 1.7,
+  drag: 0.35,
 };
 
-export const COIN = {
-  size: 24,
-  speed: 190,
-  speedPerLevel: 14,
-  interval: 1.4,
-  intervalJitter: 0.8,
-  points: 10,
+export const CAMERA = {
+  footDistance: 7.5,
+  footHeight: 3.4,
+  carDistance: 11.5,
+  carHeight: 4.8,
+  lookHeight: 1.7,
+  lookAhead: 4,
+  lerp: 5.5,
+  menuRadius: 150,
+  menuHeight: 52,
 };
 
-/** Seconds of play per level, and the last level: speeds and spawn rates stop growing there. */
-export const LEVEL = { seconds: 12, max: 12 };
-
-/** How many falling things can exist at once; the pool is allocated once, at boot. */
-export const POOL_SIZE = 64;
-
-export const PALETTE = {
-  backdrop: '#11141b',
-  sky: '#1b1f2a',
-  ground: '#2a3040',
-  player: '#4fc3f7',
-  block: '#e5534b',
-  coin: '#f2c94c',
-  panel: '#252b38',
-  text: '#eef1f5',
-  muted: '#8b93a3',
+// Warm pastel sun-soaked palette: peach, sand, coral, mint, cream.
+export const COLORS = {
+  sky: 0x8ecfea,
+  fog: 0xa8d4e6,
+  sun: 0xffe8c0,
+  ground: 0xd9c9a3,
+  asphalt: 0x3a3f4a,
+  sidewalk: 0xd9cfc0,
+  sand: 0xf2d8a7,
+  water: 0x2e9bc6,
+  facades: [0xf6c6a8, 0xf9d976, 0xf7a8b8, 0xa8d8c8, 0xf2b880, 0xc8b8e8, 0xfff1d6],
+  roof: 0x5a5f6b,
+  trunk: 0x8a6b4f,
+  palmLeaf: 0x3fae6a,
+  lampHead: 0xffe9a8,
+  playerShirt: 0x2fa8a0,
+  playerPants: 0x2e3a4f,
+  playerSkin: 0xe8b98a,
+  playerCap: 0xd94f3d,
 };
 
-export const FONT = 'system-ui, -apple-system, "Segoe UI", sans-serif';
+export const KEYS = {
+  up: ['KeyW', 'ArrowUp'],
+  down: ['KeyS', 'ArrowDown'],
+  left: ['KeyA', 'ArrowLeft'],
+  right: ['KeyD', 'ArrowRight'],
+  sprint: ['ShiftLeft', 'ShiftRight'],
+  brake: ['Space'],
+  interact: ['KeyE'],
+  shoot: ['KeyF'],
+  save: ['KeyP'],
+  mute: ['KeyM'],
+  pause: ['Escape'],
+  confirm: ['Enter', 'Space'],
+};
 
-/** Where the best score is kept between visits (this browser only). */
-export const BEST_KEY = 'block-dodger.best';
+export const WANTED = {
+  max: 5,
+  heatPerCrime: 1,
+  decayPerSecond: 0.04,
+};
+
+export const SAVE_KEY = 'vice-shores-save-v1';
+
+export const SHOT_SETTLE_MS = 1500;

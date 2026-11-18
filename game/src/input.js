@@ -1,53 +1,122 @@
-// Keyboard and pointer input. Held keys give a steering direction; one-shot presses (start or
-// restart, pause) are queued as bit flags and taken once by the loop, so a press between two
-// frames is never lost and never counted twice.
+// Keyboard and pointer input. Held keys are read every frame; one-shot presses
+// (interact, save, mute, pause, confirm) land in a `fresh` set that the loop
+// consumes once per frame via endFrame(), so a press between frames is never
+// lost and never counted twice.
+import { KEYS } from './config.js';
 
-export const ACTION_CONFIRM = 1;
-export const ACTION_PAUSE = 2;
+function has(list, code) {
+  return list.indexOf(code) !== -1;
+}
 
-const LEFT = new Set(['ArrowLeft', 'KeyA']);
-const RIGHT = new Set(['ArrowRight', 'KeyD']);
-const CONFIRM = new Set(['Space', 'Enter']);
-const PAUSE = new Set(['KeyP', 'Escape']);
-
-export function createInput(target) {
-  let left = false;
-  let right = false;
-  let actions = 0;
+export function createInput(canvas) {
+  const keys = new Set();
+  const fresh = new Set();
+  let orbitYaw = 0;
+  let orbitPitch = 0;
+  let dragging = false;
+  let lastX = 0;
+  let lastY = 0;
 
   window.addEventListener('keydown', (event) => {
-    if (LEFT.has(event.code)) left = true;
-    else if (RIGHT.has(event.code)) right = true;
-    else if (CONFIRM.has(event.code)) {
-      if (!event.repeat) actions |= ACTION_CONFIRM;
-    } else if (PAUSE.has(event.code)) {
-      if (!event.repeat) actions |= ACTION_PAUSE;
-    } else return;
-    event.preventDefault();
+    if (event.repeat) return;
+    keys.add(event.code);
+    fresh.add(event.code);
+    // Don't scroll the page with game keys.
+    if (
+      has(KEYS.up, event.code) || has(KEYS.down, event.code)
+      || has(KEYS.left, event.code) || has(KEYS.right, event.code)
+      || event.code === 'Space'
+    ) {
+      event.preventDefault();
+    }
   });
   window.addEventListener('keyup', (event) => {
-    if (LEFT.has(event.code)) left = false;
-    else if (RIGHT.has(event.code)) right = false;
+    keys.delete(event.code);
   });
-  // A key released while the tab is hidden never sends keyup: let go of everything on blur.
+  // A key released while the tab is hidden never sends keyup: let go of all.
   window.addEventListener('blur', () => {
-    left = false;
-    right = false;
-  });
-  target.addEventListener('pointerdown', () => {
-    actions |= ACTION_CONFIRM;
+    keys.clear();
+    dragging = false;
   });
 
+  canvas.addEventListener('pointerdown', (event) => {
+    dragging = true;
+    lastX = event.clientX;
+    lastY = event.clientY;
+    fresh.add('MouseClick');
+    canvas.setPointerCapture(event.pointerId);
+  });
+  canvas.addEventListener('pointermove', (event) => {
+    if (!dragging) return;
+    orbitYaw -= (event.clientX - lastX) * 0.005;
+    orbitPitch += (event.clientY - lastY) * 0.004;
+    orbitPitch = Math.max(-0.5, Math.min(0.6, orbitPitch));
+    lastX = event.clientX;
+    lastY = event.clientY;
+  });
+  const endDrag = () => {
+    dragging = false;
+  };
+  canvas.addEventListener('pointerup', endDrag);
+  canvas.addEventListener('pointercancel', endDrag);
+  canvas.addEventListener('contextmenu', (event) => event.preventDefault());
+
+  const anyDown = (list) => list.some((code) => keys.has(code));
+  const anyFresh = (list) => list.some((code) => fresh.has(code));
+
   return {
-    /** -1 for left, 1 for right, 0 for neither or both. */
-    direction() {
-      return (right ? 1 : 0) - (left ? 1 : 0);
+    /** Raw held-key set (for debugging or custom bindings). */
+    keys,
+
+    /** -1..1 strafe (A/D): positive is right. */
+    get moveX() {
+      return (anyDown(KEYS.right) ? 1 : 0) - (anyDown(KEYS.left) ? 1 : 0);
     },
-    /** The one-shot presses since the last call, as ACTION_* flags. */
-    takeActions() {
-      const taken = actions;
-      actions = 0;
-      return taken;
+    /** -1..1 throttle (W/S): positive is forward. */
+    get moveY() {
+      return (anyDown(KEYS.up) ? 1 : 0) - (anyDown(KEYS.down) ? 1 : 0);
+    },
+    get sprint() {
+      return anyDown(KEYS.sprint);
+    },
+    get brake() {
+      return anyDown(KEYS.brake);
+    },
+    /** Held shoot key (F). Mouse clicks are one-shot: use clickPressed. */
+    get shootHeld() {
+      return anyDown(KEYS.shoot);
+    },
+    get orbitYaw() {
+      return orbitYaw;
+    },
+    get orbitPitch() {
+      return orbitPitch;
+    },
+    /** True only on the frame the key went down. */
+    pressed(code) {
+      return fresh.has(code);
+    },
+    get interactPressed() {
+      return anyFresh(KEYS.interact);
+    },
+    get savePressed() {
+      return anyFresh(KEYS.save);
+    },
+    get mutePressed() {
+      return anyFresh(KEYS.mute);
+    },
+    get pausePressed() {
+      return anyFresh(KEYS.pause);
+    },
+    get confirmPressed() {
+      return anyFresh(KEYS.confirm);
+    },
+    get clickPressed() {
+      return fresh.has('MouseClick');
+    },
+    /** Clear the one-shot presses; call once per frame after the loop reads them. */
+    endFrame() {
+      fresh.clear();
     },
   };
 }
